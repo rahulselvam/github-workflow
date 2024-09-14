@@ -21,7 +21,9 @@ env:
   #CHART_OVERRIDE_PATH: ./aks-helloworld/values-override.yaml     # set this to an array of override file paths
 
 on: [push]
-
+permissions:
+    id-token: write
+    contents: read
 jobs:
   build:
     runs-on: ubuntu-latest
