@@ -1,0 +1,72 @@
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+
+# GitHub recommends pinning actions to a commit SHA.
+# To get a newer version, you will need to update the SHA.
+# You can also reference a tag or branch, but the action may change without warning.
+
+name: Build and deploy to Azure Kubernetes Service
+
+env:
+  AZURE_CONTAINER_REGISTRY: acirahul # set this to the name of your container registry
+  PROJECT_NAME: aks-github              # set this to your project's name
+  RESOURCE_GROUP: AzureDevOps          # set this to the resource group containing your AKS cluster
+  CLUSTER_NAME: aks-github-actions              # set this to the name of your AKS cluster
+  REGISTRY_URL: acirahul.azurecr.io              # set this to the URL of your registry
+  # If you bake using helm:
+  CHART_PATH: ./Helm/HelmCharts/prometheus/                   # set this to the path to your helm file
+  #CHART_OVERRIDE_PATH: ./aks-helloworld/values-override.yaml     # set this to an array of override file paths
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Azure Login
+      uses: azure/login@v2
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        enable-AzPSSession: true
+
+    - name: Build image on ACR
+      uses: azure/CLI@v2
+      with:
+        azcliversion: latest
+        inlineScript: |
+          az configure --defaults acr=${{ env.AZURE_CONTAINER_REGISTRY }}
+          az acr build -t  -t ${{ env.REGISTRY_URL }}/${{ env.PROJECT_NAME }}:${{ github.sha }}
+
+    - name: Gets K8s context
+      uses: azure/aks-set-context@v3
+      with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          resource-group: ${{ env.RESOURCE_GROUP }}
+          cluster-name: ${{ env.CLUSTER_NAME }}
+      id: login
+
+    - name: Configure deployment
+      uses: azure/k8s-bake@v3
+      with:
+        renderEngine: 'helm'
+        helmChart: ${{ env.CHART_PATH }}
+        #overrideFiles: ${{ env.CHART_OVERRIDE_PATH }}
+        #overrides: |
+          #replicas:2
+        helm-version: 'latest'
+      id: bake
+
+    - name: Deploys application
+      uses: Azure/k8s-deploy@v4
+      with:
+        manifests: ${{ steps.bake.outputs.manifestsBundle }}
+        images: |
+          ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.PROJECT_NAME }}:${{ github.sha }}
+        imagepullsecrets: |
+          ${{ env.PROJECT_NAME }}
