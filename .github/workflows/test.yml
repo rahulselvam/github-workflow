@@ -1,4 +1,4 @@
-# File: .github/workflows/workflow.yml
+# secrets updated
 
 name: Run Azure Login with OIDC
 on: push
