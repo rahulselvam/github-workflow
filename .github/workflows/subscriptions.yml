@@ -24,11 +24,11 @@ jobs:
         with:
           azcliversion: latest
           inlineScript: |
-            az account show
+            az resource list --output table -g AzureDevOps
 
       - name: Azure PowerShell script
         uses: azure/powershell@v2
         with:
           azPSVersion: "latest"
           inlineScript: |
-            Get-AzContext
+            Get-AzResource -ResourceGroupName AzureDevops | Format-Table
