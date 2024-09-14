@@ -25,6 +25,7 @@ on: [push]
 jobs:
   build:
     runs-on: ubuntu-latest
+    environment: Prod
     steps:
     - uses: actions/checkout@v4
 
